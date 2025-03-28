@@ -1,0 +1,22 @@
+<!-- templates/index.html -->
+{% extends 'base.html' %}
+
+{% block title %}Bem-vindo - Cotação de Frete{% endblock %}
+
+{% block content %}
+<div class="jumbotron text-center">
+    <h1 class="display-4">Sistema de Cotação de Frete</h1>
+    <p class="lead">Obtenha cotações de frete de diversas transportadoras de forma rápida e fácil.</p>
+    <hr class="my-4">
+    <p>Clique no botão abaixo para iniciar uma nova cotação ou consulte cotações anteriores no menu.</p>
+    <a href="{{ url_for('client') }}" class="btn btn-primary btn-lg">
+        <i class="fas fa-plus"></i> Iniciar Nova Cotação
+    </a>
+     <a href="{{ url_for('consultations') }}" class="btn btn-secondary btn-lg ml-2">
+        <i class="fas fa-search"></i> Consultar Cotações
+    </a>
+</div>
+
+<!-- Optional: Add more introductory content or features here -->
+
+{% endblock %}

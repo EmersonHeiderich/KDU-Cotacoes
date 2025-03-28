@@ -1,0 +1,170 @@
+<!-- templates/quote_details.html -->
+{% extends 'base.html' %}
+
+{% block title %}Detalhes da Cotação {{ quote.protocolo }}{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    <style>
+        .card-header h6 { font-size: 1em; font-weight: bold; }
+        .card-text strong { margin-right: 5px; }
+        .table-sm th, .table-sm td { padding: 0.4rem; vertical-align: middle;}
+        .table th { background-color: #f8f9fa; } /* Light grey header */
+         .response-error-message { color: #dc3545; font-style: italic; font-size: 0.9em;}
+         .response-success-message { color: #28a745; font-style: italic; font-size: 0.9em;}
+         .frete-percent { font-size: 0.9em; color: #6c757d; }
+    </style>
+{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+<a href="{{ url_for('consultations') }}" class="btn btn-secondary btn-sm">
+    <i class="fas fa-arrow-left"></i> Voltar à Consulta
+</a>
+{% else %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Detalhes da Cotação</h2>
+    <span class="badge badge-secondary" style="font-size: 1.1em;">Protocolo: {{ quote.protocolo }}</span>
+</div>
+
+
+<div class="row">
+    <!-- Client Data -->
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header py-2">
+                <h6 class="mb-0"><i class="fas fa-user mr-2"></i>Dados do Cliente</h6>
+            </div>
+            <div class="card-body py-2" style="font-size: 0.9em;">
+                <p class="card-text mb-1"><strong>Código:</strong> {{ client.code }}</p>
+                <p class="card-text mb-1"><strong>Razão Social:</strong> {{ client.name }}</p>
+                <p class="card-text mb-1"><strong>CNPJ:</strong> {{ client.cnpj }}</p>
+                <p class="card-text mb-1"><strong>Cidade:</strong> {{ client.city_name }} / {{ client.state_abbreviation }}</p>
+                <p class="card-text mb-1"><strong>Endereço:</strong> {{ client.address or '-' }}{% if client.address_number %}, Nº {{ client.address_number }}{% endif %}</p>
+                <p class="card-text mb-1"><strong>Bairro:</strong> {{ client.neighborhood or '-' }}</p>
+                <p class="card-text mb-0"><strong>CEP:</strong> {{ client.cep }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quote Summary & Packages -->
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header py-2">
+                <h6 class="mb-0"><i class="fas fa-file-invoice-dollar mr-2"></i>Resumo da Cotação</h6>
+            </div>
+            <div class="card-body py-2" style="font-size: 0.9em;">
+                 <!-- Use data attributes for JS formatting -->
+                <p class="card-text mb-1"><strong>Valor Mercadoria:</strong> <span data-valor-nf="{{ quote.invoice_value }}">-</span></p>
+                <p class="card-text mb-1"><strong>Peso Total:</strong> <span data-peso="{{ quote.total_weight }}">-</span></p>
+                <p class="card-text mb-1"><strong>Nº Pacotes:</strong> {{ quote.total_packages }}</p>
+                <p class="card-text mb-1"><strong>Volume Total:</strong> <span data-volume="{{ quote.total_volume }}">-</span></p>
+                <p class="card-text mb-1"><strong>Data da Cotação:</strong> {{ quote.quote_date.strftime('%d/%m/%Y %H:%M:%S') }}</p> <!-- Format date from Python -->
+                
+                <!-- Packages Details -->
+                <h6 class="mt-3 mb-1">Embalagens</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mt-1 mb-0" style="font-size: 0.85em;">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Qtd</th>
+                                <th>Dimensões (C x A x L cm)</th>
+                                <th>Peso Unit.</th>
+                                <th>Vol. Unit. (m³)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for package in packages %}
+                            <tr>
+                                <td>{{ package.AmountPackages }}</td>
+                                <td>{{ package.Length | round(0) }} x {{ package.Height | round(0) }} x {{ package.Width | round(0) }}</td>
+                                <td><span data-peso="{{ package.Weight }}">-</span></td>
+                                <td><span data-volume="{{ package.volume_unitario }}">-</span></td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center">Nenhuma embalagem registrada.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h4 class="mt-4">Cotações das Transportadoras</h4>
+<div class="table-responsive">
+    <table class="table table-bordered table-striped table-hover" id="responses-table" style="font-size: 0.9em;">
+        <thead class="thead-dark">
+            <tr>
+                <th>Transportadora</th>
+                <th>Modal</th>
+                <th>Frete</th>
+                <th>% Frete / NF</th> <!-- Changed calculation basis -->
+                <th>Prazo (dias)</th>
+                <th>Ref. Cotação</th>
+                <th>Mensagem</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for response in responses %}
+            <tr class="{{ 'table-danger' if response.message and not response.shipping_value else ('table-success' if response.shipping_value else '') }}">
+                <td><strong>{{ response.carrier_trade_name }}</strong></td>
+                <td>{{ response.modal or '-' }}</td>
+                <td class="text-right" data-frete="{{ response.shipping_value if response.shipping_value else '' }}">-</td>
+                <td class="text-right frete-percent">
+                     {% if response.shipping_value and response.shipping_value > 0 and quote.invoice_value > 0 %}
+                        {{ "{:.2f}%".format(response.frete_percent) }}
+                     {% else %}
+                        -
+                     {% endif %}
+                </td>
+                <td class="text-center">{{ response.deadline_days if response.deadline_days is not none else '-' }}</td>
+                <td class="text-center">{{ response.quote_carrier or '-' }}</td>
+                <td>
+                    {% if response.message %}
+                        <span class="response-error-message">{{ response.message }}</span>
+                    {% elif response.shipping_value %}
+                         <span class="response-success-message">OK</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center">Nenhuma resposta de transportadora encontrada para esta cotação.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Action Buttons -->
+<div class="mt-3">
+    <a href="{{ url_for('consultations') }}" class="btn btn-secondary btn-sm">
+        <i class="fas fa-arrow-left"></i> Voltar à Consulta
+    </a>
+    <a href="{{ url_for('client') }}" class="btn btn-primary btn-sm">
+        <i class="fas fa-plus"></i> Nova Cotação
+    </a>
+    <!-- Add Print button maybe? -->
+     <button type="button" class="btn btn-info btn-sm" onclick="window.print();">
+        <i class="fas fa-print"></i> Imprimir
+    </button>
+</div>
+{% endif %} <!-- End of else block (if no error) -->
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <!-- Include formatters script for dynamic formatting -->
+    <script src="{{ url_for('static', filename='js/formatters.js') }}"></script>
+    <script>
+        // Additional JS if needed for this page specifically
+        // e.g., dynamic sorting or filtering of the responses table
+        document.addEventListener('DOMContentLoaded', function() {
+             console.log("Quote details page loaded.");
+             // Trigger formatting explicitly if DOM elements were added after initial load (unlikely here)
+        });
+    </script>
+{% endblock %}

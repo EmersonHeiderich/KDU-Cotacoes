@@ -1,0 +1,66 @@
+<!-- templates/client.html -->
+{% extends 'base.html' %}
+
+{% block title %}Dados do Cliente - Nova Cotação{% endblock %}
+
+{% block content %}
+<h2>Passo 1: Informe o Cliente e Valor</h2>
+
+{% if error %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    {{ error }}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">×</span>
+    </button>
+</div>
+{% endif %}
+
+<!-- Add novalidate to prevent default browser validation, rely on JS/Server -->
+<form method="post" id="client-form" novalidate>
+    <div class="form-row">
+        <div class="form-group col-md-6">
+            <label for="identifier">Código ou CNPJ do Cliente <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="identifier" name="identifier" 
+                   placeholder="Digite o código ou CNPJ" 
+                   required 
+                   aria-describedby="identifierHelp">
+            <small id="identifierHelp" class="form-text text-muted">
+                Use o formato XX.XXX.XXX/XXXX-XX para CNPJ.
+            </small>
+            <!-- Feedback divs for Bootstrap validation -->
+            <div class="invalid-feedback">
+                Por favor, informe um código ou CNPJ válido.
+            </div>
+             <div class="valid-feedback">
+                Ok!
+            </div>
+        </div>
+
+        <div class="form-group col-md-6">
+            <label for="invoice_value">Valor da Mercadoria (NF) <span class="text-danger">*</span></label>
+            <!-- Changed type to text to allow currency formatting -->
+            <input type="text" class="form-control" id="invoice_value" name="invoice_value" 
+                   placeholder="R$ 0,00" 
+                   required
+                   inputmode="decimal"> <!-- Hint for mobile keyboards -->
+            <!-- Feedback divs for Bootstrap validation -->
+            <div class="invalid-feedback">
+                Por favor, informe um valor de mercadoria válido (maior que zero).
+            </div>
+            <div class="valid-feedback">
+                Ok!
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        <i class="fas fa-arrow-right"></i> Continuar para Embalagens
+    </button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }} <!-- Include base scripts -->
+    <!-- Include validation script specific to this page -->
+    <script src="{{ url_for('static', filename='js/validation.js') }}"></script>
+{% endblock %}

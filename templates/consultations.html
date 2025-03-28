@@ -1,0 +1,277 @@
+<!-- templates/consultations.html -->
+{% extends 'base.html' %}
+
+{% block title %}Consulta de Cotações{% endblock %}
+
+{% block head %}
+ {{ super() }}
+ <style>
+    #quotations-table th { background-color: #f8f9fa; }
+    #filters-form .form-control { font-size: 0.9em; }
+ </style>
+{% endblock %}
+
+{% block content %}
+<h2>Consulta de Cotações Realizadas</h2>
+
+<!-- Filters Form -->
+<form id="filters-form" class="mb-4 p-3 border rounded bg-light shadow-sm">
+    <h5 class="mb-3">Filtrar Cotações</h5>
+    <div class="form-row align-items-end">
+        <div class="col-md-2 mb-2">
+             <label for="filter_code" class="sr-only">Código Cliente</label>
+            <input type="text" class="form-control form-control-sm" id="filter_code" placeholder="Código Cliente">
+        </div>
+        <div class="col-md-3 mb-2">
+             <label for="filter_cnpj" class="sr-only">CNPJ</label>
+            <input type="text" class="form-control form-control-sm" id="filter_cnpj" placeholder="CNPJ (XX.XXX.XXX/XXXX-XX)">
+        </div>
+        <div class="col-md-3 mb-2">
+             <label for="filter_name" class="sr-only">Razão Social</label>
+            <input type="text" class="form-control form-control-sm" id="filter_name" placeholder="Parte da Razão Social">
+        </div>
+        <div class="col-md-2 mb-2">
+             <label for="filter_date" class="sr-only">Data</label>
+            <input type="date" class="form-control form-control-sm" id="filter_date" placeholder="Data (AAAA-MM-DD)">
+        </div>
+        <div class="col-md-2 mb-2">
+            <button type="button" class="btn btn-primary btn-sm btn-block" id="apply-filters-btn">
+                 <i class="fas fa-filter"></i> Aplicar Filtros
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm btn-block mt-1" id="clear-filters-btn">
+                 <i class="fas fa-times"></i> Limpar
+            </button>
+        </div>
+    </div>
+     <div id="filter-error" class="text-danger mt-2" style="display: none;"></div>
+</form>
+
+<!-- Quotations Table -->
+<div class="table-responsive">
+    <table class="table table-striped table-bordered table-hover" id="quotations-table" style="font-size: 0.9em;">
+        <thead class="thead-dark">
+            <tr>
+                <th scope="col">Protocolo</th>
+                <th scope="col">Código</th>
+                <th scope="col">Razão Social</th>
+                <th scope="col">CNPJ</th>
+                <th scope="col" class="text-right">Valor NF</th>
+                <th scope="col" class="text-center">Pacotes</th>
+                <th scope="col" class="text-right">Volume (m³)</th>
+                <th scope="col">Data</th>
+                <th scope="col" class="text-center">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Initial rows loaded from server -->
+            {% for quote in quotations %}
+            <tr>
+                <td>{{ quote.protocolo }}</td>
+                <td>{{ quote.code }}</td>
+                <td>{{ quote.name }}</td>
+                <td>{{ quote.cnpj }}</td>
+                 <!-- Use data attributes for JS formatting -->
+                <td class="text-right" data-valor-nf="{{ quote.invoice_value }}">-</td>
+                <td class="text-center">{{ quote.total_packages }}</td>
+                <td class="text-right" data-volume="{{ quote.total_volume }}">-</td>
+                <td>{{ quote.quote_date.strftime('%d/%m/%Y %H:%M') }}</td> <!-- Shorter format -->
+                <td class="text-center">
+                    <a href="{{ url_for('quote_details', quote_id=quote.quote_id) }}" class="btn btn-sm btn-info" title="Ver Detalhes">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+             <tr id="no-results-row">
+                <td colspan="9" class="text-center">Nenhuma cotação encontrada.</td>
+             </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<div id="loading-results" class="text-center mt-3" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+      <span class="sr-only">Carregando...</span>
+    </div>
+    <p>Buscando cotações...</p>
+</div>
+
+
+<!-- New Quote Button -->
+<a href="{{ url_for('client') }}" class="btn btn-primary mt-3">
+     <i class="fas fa-plus"></i> Nova Cotação
+</a>
+{% endblock %}
+
+
+{% block scripts %}
+    {{ super() }}
+    <!-- Include formatters script -->
+    <script src="{{ url_for('static', filename='js/formatters.js') }}"></script>
+     <!-- Include validation script for CNPJ formatting -->
+    <script src="{{ url_for('static', filename='js/validation.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const applyFiltersBtn = document.getElementById('apply-filters-btn');
+            const clearFiltersBtn = document.getElementById('clear-filters-btn');
+            const quotationsTableBody = document.querySelector('#quotations-table tbody');
+            const noResultsRow = document.getElementById('no-results-row');
+            const loadingIndicator = document.getElementById('loading-results');
+            const filterErrorDiv = document.getElementById('filter-error');
+            const filterForm = document.getElementById('filters-form');
+
+             // Apply initial formatting to loaded data
+             applyInitialFormatting();
+
+             // Function to apply formatting to table cells
+            function applyTableFormatting(tableBody) {
+                 tableBody.querySelectorAll('[data-valor-nf]').forEach(el => el.textContent = formatBRL(el.getAttribute('data-valor-nf')));
+                 tableBody.querySelectorAll('[data-volume]').forEach(el => { const v = formatNumber(el.getAttribute('data-volume'), 4); el.textContent = v !== '-' ? v : '-'; });
+                 // Add other formatters as needed (peso, etc.)
+             }
+
+            function applyInitialFormatting() {
+                 applyTableFormatting(quotationsTableBody);
+            }
+
+             // Function to show/hide placeholder row
+            function updatePlaceholderRow() {
+                if (noResultsRow) {
+                    const hasResults = Array.from(quotationsTableBody.children).some(row => row.id !== 'no-results-row');
+                    noResultsRow.style.display = hasResults ? 'none' : '';
+                }
+            }
+
+             // Function to fetch and display filtered results
+            function fetchAndDisplayResults() {
+                const code = document.getElementById('filter_code').value.trim();
+                const cnpj = document.getElementById('filter_cnpj').value.trim(); // Keep format for display
+                const name = document.getElementById('filter_name').value.trim();
+                const date = document.getElementById('filter_date').value.trim();
+
+                // Show loading indicator, hide error, clear table
+                loadingIndicator.style.display = 'block';
+                filterErrorDiv.style.display = 'none';
+                filterErrorDiv.textContent = '';
+                quotationsTableBody.innerHTML = ''; // Clear current results
+                 if(noResultsRow) noResultsRow.style.display = 'none'; // Hide placeholder
+
+
+                // Construct query parameters
+                 const params = new URLSearchParams();
+                 if (code) params.append('code', code);
+                 if (cnpj) params.append('cnpj', onlyNumbers(cnpj)); // Send only digits to backend
+                 if (name) params.append('name', name);
+                 if (date) params.append('date', date);
+
+
+                fetch(`/consultations/filter?${params.toString()}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(err => { throw new Error(err.error || `Erro ${response.status}`); });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        loadingIndicator.style.display = 'none'; // Hide loading
+
+                        if (data.error) { // Handle backend error reported in JSON
+                             filterErrorDiv.textContent = data.error;
+                             filterErrorDiv.style.display = 'block';
+                             quotationsTableBody.innerHTML = ''; // Ensure table is empty
+                             if(noResultsRow) noResultsRow.style.display = ''; // Show placeholder with default message
+                             return;
+                        }
+
+                        if (!data.quotations || data.quotations.length === 0) {
+                             quotationsTableBody.innerHTML = ''; // Ensure table is empty
+                             if (noResultsRow) {
+                                  noResultsRow.querySelector('td').textContent = 'Nenhuma cotação encontrada para os filtros aplicados.';
+                                  noResultsRow.style.display = ''; // Show specific message
+                             }
+                             return;
+                        }
+
+                        // Populate the table with filtered results
+                        data.quotations.forEach(quote => {
+                            const row = document.createElement('tr');
+                            
+                            // Format date using JS (assuming quote.quote_date is ISO string or similar)
+                             let formattedDate = '-';
+                             try {
+                                 const quoteDate = new Date(quote.quote_date);
+                                 // Check if date is valid before formatting
+                                 if (!isNaN(quoteDate.getTime())) {
+                                     formattedDate = quoteDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                 } else {
+                                      console.warn("Invalid date received:", quote.quote_date);
+                                 }
+                             } catch (e) {
+                                 console.error("Error formatting date:", e);
+                             }
+
+                            row.innerHTML = `
+                                <td>${quote.protocolo}</td>
+                                <td>${quote.code || '-'}</td>
+                                <td>${quote.name || '-'}</td>
+                                <td>${quote.cnpj || '-'}</td>
+                                <td class="text-right" data-valor-nf="${quote.invoice_value}">-</td>
+                                <td class="text-center">${quote.total_packages}</td>
+                                <td class="text-right" data-volume="${quote.total_volume}">-</td>
+                                <td>${formattedDate}</td>
+                                <td class="text-center">
+                                    <a href="/consultations/${quote.quote_id}" class="btn btn-sm btn-info" title="Ver Detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            `;
+                            quotationsTableBody.appendChild(row);
+                        });
+                        
+                        // Apply formatting to the newly added rows
+                         applyTableFormatting(quotationsTableBody);
+                         updatePlaceholderRow(); // Hide placeholder if results exist
+
+                    })
+                    .catch(error => {
+                        loadingIndicator.style.display = 'none';
+                        console.error('Erro ao aplicar filtros:', error);
+                        filterErrorDiv.textContent = `Erro ao buscar dados: ${error.message}`;
+                        filterErrorDiv.style.display = 'block';
+                        quotationsTableBody.innerHTML = ''; // Clear table on error
+                        if (noResultsRow) {
+                             noResultsRow.querySelector('td').textContent = 'Erro ao carregar cotações.';
+                             noResultsRow.style.display = ''; // Show error message in placeholder
+                         }
+                    });
+            }
+
+            // Event listener for the filter button
+            if (applyFiltersBtn) {
+                applyFiltersBtn.addEventListener('click', fetchAndDisplayResults);
+            }
+            
+            // Event listener for the clear button
+            if (clearFiltersBtn) {
+                 clearFiltersBtn.addEventListener('click', function() {
+                     filterForm.reset(); // Reset form fields
+                     filterErrorDiv.style.display = 'none'; // Hide error
+                     // Optionally, reload the initial data or fetch all unfiltered data
+                     // For simplicity, let's just clear the table and show placeholder
+                     quotationsTableBody.innerHTML = ''; 
+                     if (noResultsRow) {
+                          noResultsRow.querySelector('td').textContent = 'Filtros limpos. Aplique novos filtros para buscar.';
+                          noResultsRow.style.display = ''; 
+                     }
+                     // Or trigger fetchAndDisplayResults() again to show default last 15 (if backend supports empty filters for that)
+                     // fetchAndDisplayResults(); 
+                 });
+            }
+
+             // Initial setup
+            updatePlaceholderRow(); // Check initial state of placeholder
+
+        }); // End DOMContentLoaded
+    </script>
+{% endblock %}

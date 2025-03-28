@@ -1,0 +1,316 @@
+<!-- templates/quotations.html -->
+{% extends 'base.html' %}
+
+{% block title %}Passo 3: Cotações{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    <style>
+        .card-header h6 { font-size: 1em; font-weight: bold; }
+        .card-text strong { margin-right: 5px; }
+        .table-sm th, .table-sm td { padding: 0.4rem; vertical-align: middle;}
+        #quotations-table th { background-color: #343a40; color: white; } /* Dark header */
+        #loading-indicator span { margin-left: 8px; }
+        .response-error-message { color: #dc3545; font-style: italic; font-size: 0.9em;}
+        .response-success-message { color: #28a745; font-style: italic; font-size: 0.9em;}
+        .frete-percent { font-size: 0.9em; color: #6c757d; }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+     <h2>Passo 3: Resultado das Cotações</h2>
+     <!-- Protocol will be updated by JS -->
+     <span id="protocol-display" class="badge badge-secondary" style="font-size: 1.1em;">Aguardando Protocolo...</span>
+</div>
+
+
+<!-- Summary Row -->
+<div class="row mb-3">
+    <!-- Client Data -->
+    <div class="col-lg-6 mb-3 mb-lg-0">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header py-2">
+                <h6 class="mb-0"><i class="fas fa-user mr-2"></i>Cliente</h6>
+            </div>
+            <div class="card-body py-2" style="font-size: 0.9em;">
+                <p class="card-text mb-1"><strong>{{ client_data.code }}</strong> - {{ client_data.name }}</p>
+                <p class="card-text mb-1"><strong>CNPJ:</strong> {{ client_data.cnpj }}</p>
+                <p class="card-text mb-0"><strong>Local:</strong> {{ client_data.city_name }} / {{ client_data.state_abbreviation }} - CEP: {{ client_data.cep }}</p>
+                 <!-- <p class="card-text mb-0"><strong>Endereço:</strong> {{ client_data.address or '-' }}, Nº {{ client_data.address_number or '-' }}</p> -->
+            </div>
+        </div>
+    </div>
+    <!-- Shipment Summary -->
+    <div class="col-lg-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header py-2">
+                 <h6 class="mb-0"><i class="fas fa-box-open mr-2"></i>Resumo da Carga</h6>
+            </div>
+            <div class="card-body py-2" style="font-size: 0.9em;">
+                <!-- Use data attributes for JS formatting -->
+                <p class="card-text mb-1"><strong>Valor Mercadoria:</strong> <span data-total-value="{{ invoice_value }}">-</span></p>
+                <p class="card-text mb-1"><strong>Peso Total:</strong> <span data-total-weight="{{ total_weight }}">-</span></p>
+                <p class="card-text mb-1"><strong>Nº Pacotes:</strong> {{ total_packages }}</p>
+                <p class="card-text mb-0"><strong>Volume Total:</strong> <span data-total-volume="{{ total_volume }}">-</span></p>
+                 <!-- Expandable Package Details (Optional) -->
+                 <p class="mb-0 mt-2">
+                    <a class="btn btn-link btn-sm p-0" data-toggle="collapse" href="#packageDetailsCollapse" role="button" aria-expanded="false" aria-controls="packageDetailsCollapse">
+                        Ver detalhes das embalagens
+                    </a>
+                 </p>
+                 <div class="collapse mt-1" id="packageDetailsCollapse">
+                     <div class="table-responsive">
+                          <table class="table table-sm table-bordered mt-1 mb-0" style="font-size: 0.85em;">
+                              <thead class="thead-light">
+                                  <tr>
+                                      <th>Nome</th>
+                                      <th>Qtd</th>
+                                      <th>Dimensões (cm)</th>
+                                      <th>Peso Unit.</th>
+                                      <th>Vol. Unit.</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  {% for package in packages %}
+                                  <tr>
+                                      <td>{{ package.nome }}</td>
+                                      <td>{{ package.quantidade }}</td>
+                                      <td>{{ package.comprimento | round(0) }} x {{ package.altura | round(0) }} x {{ package.largura | round(0) }}</td>
+                                      <td><span data-peso="{{ package.peso }}">-</span></td>
+                                      <td><span data-volume="{{ package.volume_unitario }}">-</span></td>
+                                  </tr>
+                                  {% endfor %}
+                              </tbody>
+                          </table>
+                     </div>
+                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Quotations Table and Status -->
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h4>Cotações Recebidas</h4>
+    <span id="loading-indicator" class="d-flex align-items-center text-primary">
+        <div class="spinner-border spinner-border-sm mr-2" role="status">
+            <span class="sr-only">Aguardando...</span>
+        </div>
+        <span>Aguardando cotações...</span>
+    </span>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-striped table-hover" id="quotations-table" style="font-size: 0.9em;">
+        <thead class="thead-dark">
+            <tr>
+                <th>Transportadora</th>
+                <th>Modal</th>
+                <th>Frete</th>
+                <th>% Frete / NF</th>
+                <th>Prazo (dias)</th>
+                <th>Ref. Cotação</th>
+                <th>Mensagem</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Rows added dynamically by JS -->
+            <tr id="no-quotes-row">
+                 <td colspan="7" class="text-center text-muted">Aguardando recebimento das cotações...</td>
+             </tr>
+        </tbody>
+    </table>
+</div>
+
+<a href="{{ url_for('client') }}" class="btn btn-primary btn-sm mt-3">
+    <i class="fas fa-plus"></i> Nova Cotação
+</a>
+<a href="{{ url_for('consultations') }}" class="btn btn-secondary btn-sm mt-3">
+    <i class="fas fa-list-alt"></i> Consultar Cotações
+</a>
+{% endblock %}
+
+
+{% block scripts %}
+    {{ super() }}
+    <!-- Socket.IO client library -->
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js" integrity="sha384-c79AgkvSYFFMWSWTjRR7XrHsfKD6KSKHi4hgtQeqe/8L5k9EdOU9F/ytL9O+uDC0" crossorigin="anonymous"></script>
+    <!-- Include formatters -->
+    <script src="{{ url_for('static', filename='js/formatters.js') }}"></script>
+
+    <script>
+        // --- Quotations Page Logic ---
+        document.addEventListener('DOMContentLoaded', function() {
+            const invoiceValue = parseFloat({{ invoice_value | tojson }}); // Get invoice value from template
+            const tableBody = document.querySelector('#quotations-table tbody');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const noQuotesRow = document.getElementById('no-quotes-row');
+            const protocolDisplay = document.getElementById('protocol-display');
+
+            // Function to update the "no quotes" placeholder row
+            function updatePlaceholderRow() {
+                if (noQuotesRow) {
+                    const hasQuotes = tableBody.children.length > 1 || (tableBody.children.length === 1 && tableBody.firstElementChild.id !== 'no-quotes-row');
+                    noQuotesRow.style.display = hasQuotes ? 'none' : '';
+                }
+            }
+            
+             // Function to sort the table rows by freight value
+            function sortQuotationsTable() {
+                const rows = Array.from(tableBody.querySelectorAll('tr:not(#no-quotes-row)')); // Exclude placeholder
+
+                rows.sort((a, b) => {
+                    const aFreteAttr = a.querySelector('td[data-frete]').getAttribute('data-frete');
+                    const bFreteAttr = b.querySelector('td[data-frete]').getAttribute('data-frete');
+
+                    // Treat empty/invalid frete as Infinity (sorts last)
+                    const aFrete = (aFreteAttr && !isNaN(parseFloat(aFreteAttr))) ? parseFloat(aFreteAttr) : Infinity;
+                    const bFrete = (bFreteAttr && !isNaN(parseFloat(bFreteAttr))) ? parseFloat(bFreteAttr) : Infinity;
+                    
+                    // Primary sort: Freight ascending (errors/invalid last)
+                    if (aFrete !== bFrete) {
+                        return aFrete - bFrete;
+                    }
+                    
+                    // Secondary sort (optional): Prazo ascending for same frete
+                    const aPrazoText = a.cells[4].textContent.trim(); // Prazo is typically in the 5th cell (index 4)
+                    const bPrazoText = b.cells[4].textContent.trim();
+                    const aPrazo = (aPrazoText !== '-' && !isNaN(parseInt(aPrazoText))) ? parseInt(aPrazoText) : Infinity;
+                    const bPrazo = (bPrazoText !== '-' && !isNaN(parseInt(bPrazoText))) ? parseInt(bPrazoText) : Infinity;
+                    
+                    return aPrazo - bPrazo; 
+                });
+
+                // Re-append rows in sorted order
+                rows.forEach(row => tableBody.appendChild(row));
+                
+                updatePlaceholderRow(); // Ensure placeholder is hidden if rows were added
+            }
+
+
+            // --- Socket.IO Connection ---
+            const socket = io(); // Connect to the server
+
+            socket.on('connect', () => {
+                console.log('Socket connected:', socket.id);
+                loadingIndicator.style.display = 'flex'; // Show loading
+                loadingIndicator.classList.remove('text-success', 'text-danger');
+                loadingIndicator.classList.add('text-primary');
+                loadingIndicator.querySelector('span').textContent = 'Solicitando cotações...';
+                 if(noQuotesRow) noQuotesRow.querySelector('td').textContent = 'Aguardando recebimento das cotações...';
+                updatePlaceholderRow();
+                socket.emit('start_quotation'); // Trigger the backend process
+            });
+
+            socket.on('disconnect', (reason) => {
+                console.log('Socket disconnected:', reason);
+                // Optionally update UI to show disconnected state if not completed
+                 if (!loadingIndicator.classList.contains('text-success')) {
+                     loadingIndicator.classList.remove('text-primary');
+                     loadingIndicator.classList.add('text-warning');
+                     loadingIndicator.querySelector('.spinner-border').style.display = 'none';
+                     loadingIndicator.querySelector('span').textContent = 'Desconectado.';
+                 }
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Socket connection error:', error);
+                loadingIndicator.style.display = 'flex';
+                loadingIndicator.classList.remove('text-primary', 'text-success');
+                loadingIndicator.classList.add('text-danger');
+                loadingIndicator.querySelector('.spinner-border').style.display = 'none';
+                loadingIndicator.querySelector('span').textContent = 'Erro de conexão.';
+                 if(noQuotesRow) noQuotesRow.querySelector('td').textContent = 'Erro ao conectar para buscar cotações.';
+                updatePlaceholderRow();
+            });
+
+             // Listen for the generated protocol number
+             socket.on('protocol_generated', (data) => {
+                 if (data.protocolo && protocolDisplay) {
+                     protocolDisplay.textContent = `Protocolo: ${data.protocolo}`;
+                      protocolDisplay.classList.remove('badge-secondary');
+                      protocolDisplay.classList.add('badge-info');
+                 }
+             });
+
+            // Listen for new quotations
+            socket.on('new_quotation', (data) => {
+                 console.log('Received quotation:', data);
+                if (!data || !data.cotacao) return;
+
+                const cotacao = data.cotacao;
+                const row = document.createElement('tr');
+
+                // Determine row class based on result
+                const hasError = cotacao.message && (!cotacao.frete || cotacao.frete === '-');
+                const isSuccess = cotacao.frete && cotacao.frete !== '-';
+                row.className = hasError ? 'table-warning' : (isSuccess ? '' : ''); // Warning for API errors, default otherwise
+
+                // Calculate percentage
+                let fretePercent = '-';
+                if (isSuccess && invoiceValue > 0) {
+                    try {
+                         const percent = ((parseFloat(cotacao.frete) / invoiceValue) * 100);
+                         fretePercent = formatPercentage(percent); // Use formatter
+                    } catch (e) { console.error("Error calculating percentage", e); }
+                }
+                
+                // Format Frete
+                const formattedFrete = formatBRL(cotacao.frete);
+
+                row.innerHTML = `
+                    <td><strong>${cotacao.Transportadora || '-'}</strong></td>
+                    <td>${cotacao.modal || '-'}</td>
+                    <td class="text-right" data-frete="${isSuccess ? cotacao.frete : ''}">${formattedFrete}</td>
+                    <td class="text-right frete-percent">${fretePercent}</td>
+                    <td class="text-center">${cotacao.prazo !== null && cotacao.prazo !== undefined ? cotacao.prazo : '-'}</td>
+                    <td class="text-center">${cotacao.cotacao || '-'}</td>
+                    <td>${cotacao.message ? `<span class="response-error-message">${cotacao.message}</span>` : (isSuccess ? `<span class="response-success-message">OK</span>` : '-')}</td>
+                `;
+
+                tableBody.appendChild(row);
+                sortQuotationsTable(); // Re-sort table after adding new row
+            });
+
+            // Listen for general quotation errors from backend
+            socket.on('quotation_error', (data) => {
+                console.error('Quotation process error:', data.error);
+                loadingIndicator.style.display = 'flex';
+                loadingIndicator.classList.remove('text-primary', 'text-success');
+                loadingIndicator.classList.add('text-danger');
+                loadingIndicator.querySelector('.spinner-border').style.display = 'none'; // Hide spinner
+                loadingIndicator.querySelector('span').textContent = 'Erro no Processo!';
+                alert(`Erro ao processar cotação: ${data.error}`);
+                 if(noQuotesRow) noQuotesRow.querySelector('td').textContent = `Erro: ${data.error}`;
+                updatePlaceholderRow();
+                // Consider disconnecting socket here if error is fatal
+                // socket.disconnect(); 
+            });
+
+            // Listen for completion signal
+            socket.on('quotations_complete', () => {
+                console.log('All quotations received (or timed out).');
+                loadingIndicator.style.display = 'flex';
+                loadingIndicator.classList.remove('text-primary', 'text-danger');
+                loadingIndicator.classList.add('text-success');
+                loadingIndicator.querySelector('.spinner-border').style.display = 'none'; // Hide spinner
+                loadingIndicator.querySelector('span').textContent = 'Concluído';
+                if(noQuotesRow) noQuotesRow.querySelector('td').textContent = 'Nenhuma cotação válida recebida.'; // Update placeholder if still visible
+                updatePlaceholderRow();
+                socket.disconnect(); // Disconnect after completion
+            });
+
+             // Initial setup on page load
+             updatePlaceholderRow();
+             // Apply formatting to initially loaded elements (e.g., summary section)
+             document.querySelectorAll('[data-total-value]').forEach(el => el.textContent = formatBRL(el.getAttribute('data-total-value')));
+             document.querySelectorAll('[data-total-weight]').forEach(el => { const w = formatNumber(el.getAttribute('data-total-weight'), 2); el.textContent = w !== '-' ? w + ' kg' : '-'; });
+             document.querySelectorAll('[data-total-volume]').forEach(el => { const v = formatNumber(el.getAttribute('data-total-volume'), 4); el.textContent = v !== '-' ? v + ' m³' : '-'; });
+             document.querySelectorAll('[data-peso]').forEach(el => { const p = formatNumber(el.getAttribute('data-peso'), 2); el.textContent = p !== '-' ? p + ' kg' : '-'; });
+             document.querySelectorAll('[data-volume]').forEach(el => { const vo = formatNumber(el.getAttribute('data-volume'), 5); el.textContent = vo !== '-' ? vo + ' m³' : '-'; }); // Volume unitario
+
+        }); // End DOMContentLoaded
+    </script>
+{% endblock %}

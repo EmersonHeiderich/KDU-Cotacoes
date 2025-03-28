@@ -1,0 +1,8 @@
+Flask==2.0.1
+Flask-WTF==0.15.1
+WTForms==2.3.3
+Flask-SocketIO>=5.0.0 # Added Flask-SocketIO
+eventlet>=0.30.0     # Added eventlet (needed by SocketIO async_mode)
+psycopg2-binary>=2.8.0 # Added PostgreSQL driver
+requests>=2.25.0     # Added requests for APIs
+python-dotenv>=0.15.0 # Added for loading .env files

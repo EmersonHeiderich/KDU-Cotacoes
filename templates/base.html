@@ -1,0 +1,89 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Responsive meta tag -->
+    <title>{% block title %}Cotação de Frete{% endblock %}</title>
+    
+    <!-- Bootstrap CSS (consider using a specific version) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+    
+    <!-- Font Awesome CSS (using v6) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    
+    <!-- Custom CSS block -->
+    <style>
+        /* Add custom styles here if needed */
+        .navbar-brand {
+            font-weight: bold;
+        }
+        /* Improve spacing for feedback messages */
+        .form-group .invalid-feedback, .form-group .valid-feedback {
+            display: block; /* Ensure feedback is always shown when class is present */
+            margin-top: .25rem;
+        }
+         /* Ensure required asterisk is visible */
+        .form-group label .text-danger {
+            margin-left: 2px;
+        }
+        /* Style for loading indicators */
+        #loading-indicator .spinner-border {
+             width: 1rem;
+             height: 1rem;
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <!-- Responsive Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+        <a class="navbar-brand" href="{{ url_for('index') }}">
+             <i class="fas fa-shipping-fast"></i> CotaFrete
+        </a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" 
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto"> <!-- Align items to the right -->
+                <li class="nav-item {% if request.endpoint == 'client' %}active{% endif %}">
+                    <a class="nav-link" href="{{ url_for('client') }}">
+                         <i class="fas fa-plus-circle"></i> Nova Cotação
+                         {% if request.endpoint == 'client' %}<span class="sr-only">(current)</span>{% endif %}
+                    </a>
+                </li>
+                <li class="nav-item {% if request.endpoint == 'consultations' or request.endpoint == 'quote_details' %}active{% endif %}">
+                    <a class="nav-link" href="{{ url_for('consultations') }}">
+                        <i class="fas fa-list-alt"></i> Consultar Cotações
+                        {% if request.endpoint == 'consultations' %}<span class="sr-only">(current)</span>{% endif %}
+                    </a>
+                </li>
+                 <!-- Add other navigation items here -->
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Main content block -->
+        {% block content %}{% endblock %}
+    </div>
+    
+    <!-- Footer (Optional) -->
+    <footer class="footer mt-auto py-3 bg-light border-top">
+        <div class="container text-center">
+            <span class="text-muted">CotaFrete © {{ now().year }}</span>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS Bundle (includes Popper.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct" crossorigin="anonymous"></script>
+    
+    <!-- Block for page-specific scripts -->
+    {% block scripts %}
+        <!-- Include global formatters script here if needed on multiple pages -->
+        <!-- <script src="{{ url_for('static', filename='js/formatters.js') }}"></script> -->
+    {% endblock %}
+</body>
+</html>
